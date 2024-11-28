@@ -4,10 +4,36 @@ import torch.nn as nn
 import torch.nn.functional as F
 import plotly.graph_objects as go
 
+# Add Favicon
+st.set_page_config(
+    page_title="AIVN - Advanced Gradient Vanishing Demo",
+    page_icon="./static/aivn_favicon.png",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+torch.cuda.empty_cache()
+
+# Add logo
+st.image("./static/aivn_logo.png", width=300)
+
+SEED = 42
+torch.manual_seed(SEED)
+
+
+class MyNormalization(nn.Module):
+    def __init__(self):
+        super(MyNormalization, self).__init__()
+
+    def forward(self, x):
+        mean = torch.mean(x, dim=0, keepdim=True)
+        std = torch.std(x, dim=0, keepdim=True)
+        return (x - mean) / (std + 1e-5)
+
 
 # Define a simple deep neural network
 class SimpleNN(nn.Module):
-    def __init__(self, num_layers=10, activation="sigmoid", init_weights="normal", norm_type=None, use_skip=False):
+    def __init__(self, num_layers=7, activation="sigmoid", init_weights="normal", norm_type=None, use_skip=False):
         super(SimpleNN, self).__init__()
         self.layers = nn.ModuleList()
         self.activation = activation
@@ -16,23 +42,28 @@ class SimpleNN(nn.Module):
         self.norm_layers = nn.ModuleList()
 
         # Add layers
-        for i in range(num_layers):
+        for _ in range(num_layers):
             self.layers.append(nn.Linear(10, 10))
             if norm_type == "BatchNorm":
                 self.norm_layers.append(nn.BatchNorm1d(10))
-            elif norm_type == "LayerNorm":
-                self.norm_layers.append(nn.LayerNorm(10))
+            elif norm_type == "CustomNorm":
+                self.norm_layers.append(MyNormalization())
 
         self.init_weights(init_weights)
 
     def init_weights(self, method):
-        for layer in self.layers:
-            if method == "normal":
-                nn.init.normal_(layer.weight, mean=0, std=0.01)
-            elif method == "xavier":
-                nn.init.xavier_uniform_(layer.weight)
-            elif method == "he":
-                nn.init.kaiming_uniform_(layer.weight, nonlinearity="relu")
+        if method == "Default":
+            pass
+        elif method == "Increase_std=1.0":
+            for module in self.modules():
+                if isinstance(module, nn.Linear):
+                    nn.init.normal_(module.weight, mean=0.0, std=1.0)
+                    nn.init.constant_(module.bias, 0.0)
+        elif method == "Increase_std=10.0":
+            for module in self.modules():
+                if isinstance(module, nn.Linear):
+                    nn.init.normal_(module.weight, mean=0.0, std=10.0)
+                    nn.init.constant_(module.bias, 0.0)
 
     def forward(self, x):
         skip_connection = x
@@ -44,16 +75,12 @@ class SimpleNN(nn.Module):
                 x = self.norm_layers[i](x)
 
             # Apply activation function
-            if self.activation == "sigmoid":
+            if self.activation == "Sigmoid":
                 x = torch.sigmoid(x)
-            elif self.activation == "tanh":
+            elif self.activation == "Tanh":
                 x = torch.tanh(x)
-            elif self.activation == "relu":
+            elif self.activation == "ReLU":
                 x = F.relu(x)
-            elif self.activation == "leaky_relu":
-                x = F.leaky_relu(x, negative_slope=0.01)
-            elif self.activation == "swish":
-                x = x * torch.sigmoid(x)
 
             # Add skip connection
             if self.use_skip and i % 2 == 1:
@@ -69,22 +96,24 @@ st.title("Advanced Gradient Vanishing Demo")
 st.sidebar.header("Settings")
 
 # Number of layers
-num_layers = st.sidebar.slider(
-    "Number of Layers", min_value=3, max_value=30, value=10, step=1)
+# num_layers = st.sidebar.slider(
+# "Number of Layers", min_value=3, max_value=30, value=10, step=1)
+num_layers = 7
 
 # Activation function
 activation = st.sidebar.selectbox(
-    "Activation Function", ["sigmoid", "tanh", "relu", "leaky_relu", "swish"]
+    "Activation Function", ["Sigmoid", "Tanh", "ReLU"]
 )
 
 # Weight initialization
 init_weights = st.sidebar.selectbox(
-    "Weight Initialization", ["normal", "xavier", "he"]
+    "Weight Initialization", [
+        "Default", "Increase_std=1.0", "Increase_std=10.0"]
 )
 
 # Normalization
 norm_type = st.sidebar.selectbox(
-    "Normalization Type", ["None", "BatchNorm", "LayerNorm"]
+    "Normalization Type", ["None", "BatchNorm", "CustomNorm"]
 )
 
 # Skip connection
@@ -95,18 +124,25 @@ optimizer_type = st.sidebar.selectbox(
     "Optimizer", ["SGD", "Adam"]
 )
 
-# Learning rate
-learning_rate = st.sidebar.slider(
-    "Learning Rate", min_value=0.0001, max_value=0.1, value=0.01, step=0.0001)
+# Number of epochs
+num_epochs = st.sidebar.slider(
+    "Number of Epochs", min_value=1, max_value=100, value=10)
 
-# Input data distribution
-input_type = st.sidebar.selectbox(
-    "Input Data Distribution", ["Gaussian (Normal)", "Uniform"]
+# Learning rate
+learning_rate = st.sidebar.select_slider(
+    "Learning Rate", options=[1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e0], value=1e-3
 )
 
+# Input data distribution
+# input_type = st.sidebar.selectbox(
+#     "Input Data Distribution", ["Gaussian (Normal)", "Uniform"]
+# )
+input_type = "Gaussian (Normal)"
+
 # Batch size
-batch_size = st.sidebar.slider(
-    "Batch Size", min_value=1, max_value=100, value=32)
+# batch_size = st.sidebar.slider(
+#     "Batch Size", min_value=1, max_value=100, value=32)
+batch_size = 32
 
 # Generate input data
 if input_type == "Gaussian (Normal)":
@@ -128,9 +164,18 @@ elif optimizer_type == "Adam":
 output = model(input_data)
 
 # Compute gradients
-loss = torch.sum(output)  # Dummy loss
-optimizer.zero_grad()
-loss.backward()
+criterion = nn.MSELoss()  # Use Mean Squared Error
+target = torch.zeros_like(output)  # Dummy target to compute the loss
+
+# Train model for multiple epochs
+losses = []
+for epoch in range(num_epochs):
+    optimizer.zero_grad()  # Zero the gradients
+    output = model(input_data)  # Forward pass
+    loss = criterion(output, target)  # Calculate loss
+    loss.backward()  # Backpropagation
+    optimizer.step()  # Update model weights
+    losses.append(loss.item())  # Track the loss value
 
 # Extract gradients
 gradients = []
@@ -139,6 +184,7 @@ for i, layer in enumerate(model.layers):
         gradients.append(layer.weight.grad.norm().item())
     else:
         gradients.append(0)
+
 
 # Interactive plot using Plotly
 fig = go.Figure()
@@ -184,4 +230,27 @@ st.markdown(
     - Maximum Gradient Norm: **{max(gradients):.4f}**
     - Gradient Norms displayed above for each layer.
     """
+)
+
+# Footer
+st.markdown(
+    """
+    <style>
+    .footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background-color: #f1f1f1;
+        text-align: center;
+        padding: 10px 0;
+        font-size: 14px;
+        color: #555;
+    }
+    </style>
+    <div class="footer">
+        2024 AI VIETNAM | Made by <a href="https://github.com/Koii2k3/GradientVanishing" target="_blank">Koii2k3</a>
+    </div>
+    """,
+    unsafe_allow_html=True
 )

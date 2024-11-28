@@ -1,4 +1,3 @@
-
 # Advanced Gradient Vanishing Demo
 
 This project demonstrates the **vanishing gradient problem** and visualizes gradients across layers in a neural network. It uses **Streamlit** for an interactive web interface, allowing users to explore the effects of various configurations like activation functions, weight initialization, normalization, and skip connections on gradient behavior.
@@ -10,11 +9,12 @@ This project demonstrates the **vanishing gradient problem** and visualizes grad
 - Visualize **Gradient Norm** across layers in a deep neural network.
 - Adjust model configurations via an interactive **Streamlit sidebar**:
   - Number of layers.
-  - Activation functions (Sigmoid, ReLU, etc.).
-  - Weight initialization (Normal, Xavier, He).
-  - Normalization types (BatchNorm, LayerNorm).
+  - Activation functions (Sigmoid, Tanh, ReLU).
+  - Weight initialization (Default, Increasing_std=1.0, Increasing_std=10.0).
+  - Normalization types (BatchNorm, CustomNorm).
   - Learning rate and optimizer (SGD, Adam).
   - Skip connection support.
+  - Training epochs.
 - Interactive **Plotly chart** to display gradient values layer by layer.
 - Detailed **observations** about the model configuration and gradient behavior.
 
@@ -30,11 +30,6 @@ This project demonstrates the **vanishing gradient problem** and visualizes grad
 Run the following command to install all necessary dependencies:
 ```bash
 pip install -r requirements.txt
-```
-
-If you don't have the `requirements.txt` file, you can install the required libraries manually:
-```bash
-pip install streamlit torch plotly numpy
 ```
 
 ---
@@ -71,3 +66,4 @@ streamlit run app.py
 - **Streamlit**: For providing an easy-to-use interactive interface.
 - **PyTorch**: For building neural network models.
 - **Plotly**: For creating interactive visualizations.
+
