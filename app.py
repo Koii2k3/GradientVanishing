@@ -33,7 +33,7 @@ class MyNormalization(nn.Module):
 
 # Define a simple deep neural network
 class SimpleNN(nn.Module):
-    def __init__(self, num_layers=7, activation="sigmoid", init_weights="normal", norm_type=None, use_skip=False):
+    def __init__(self, num_layers=7, activation="Sigmoid", init_weights="Default", norm_type=None, use_skip=False):
         super(SimpleNN, self).__init__()
         self.layers = nn.ModuleList()
         self.activation = activation
@@ -197,15 +197,15 @@ fig.add_trace(
         mode="lines+markers+text",
         text=[f"{g:.4f}" for g in gradients],
         textposition="top center",
-        name="Gradient Norm",
+        name="Gradient Mean",
         line=dict(color="blue"),
     )
 )
 
 fig.update_layout(
-    title="Gradient Norm Across Layers",
+    title="Gradient Mean Across 7 Layers",
     xaxis_title="Layer",
-    yaxis_title="Gradient Norm",
+    yaxis_title="Gradient Mean",
     legend=dict(yanchor="top", y=1, xanchor="right", x=1),
     hovermode="x unified",
 )
@@ -226,9 +226,9 @@ st.markdown(
     
     **Gradient Insights:**
     - Total Layers: **{num_layers}**
-    - Minimum Gradient Norm: **{min(gradients):.4f}**
-    - Maximum Gradient Norm: **{max(gradients):.4f}**
-    - Gradient Norms displayed above for each layer.
+    - Minimum Gradient Mean: **{min(gradients):.4f}**
+    - Maximum Gradient Mean: **{max(gradients):.4f}**
+    - Gradient Means displayed above for each layer.
     """
 )
 
